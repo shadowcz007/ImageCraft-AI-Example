@@ -31,21 +31,125 @@ const PRESET_OUTFITS = [
   '/presets/outfits/333.png',
 ]
 
+// 位置状态持久化键
+const POSITION_STORAGE_KEY = 'avatar_outfit_position_state'
+const IMAGE_URL_STORAGE_KEY = 'avatar_outfit_image_urls'
+
 export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedDataUrl, onRemove }: Props) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [outfitUrl, setOutfitUrl] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(cachedComposedDataUrl || null)
   const [isAdjusting, setIsAdjusting] = useState(false)
-  const [avatarPosition, setAvatarPosition] = useState<Position>({ x: 0.5, y: 0.06 })
-  const [outfitPosition, setOutfitPosition] = useState<Position>({ x: 0.5, y: 0.4 })
-  const [avatarSize, setAvatarSize] = useState<Size>({ width: 0.28, height: 0.28 })
-  const [outfitSize, setOutfitSize] = useState<Size>({ width: 0.72, height: 0.72 })
+  
+  // 使用 useRef 来保持位置状态，避免重新渲染时被重置
+  const positionStateRef = useRef({
+    avatarPosition: { x: 0.5, y: 0.06 },
+    outfitPosition: { x: 0.5, y: 0.4 },
+    avatarSize: { width: 0.28, height: 0.28 },
+    outfitSize: { width: 0.72, height: 0.72 }
+  })
+  
+  // 状态同步，用于触发重新渲染
+  const [avatarPosition, setAvatarPosition] = useState<Position>(positionStateRef.current.avatarPosition)
+  const [outfitPosition, setOutfitPosition] = useState<Position>(positionStateRef.current.outfitPosition)
+  const [avatarSize, setAvatarSize] = useState<Size>(positionStateRef.current.avatarSize)
+  const [outfitSize, setOutfitSize] = useState<Size>(positionStateRef.current.outfitSize)
+  
   const [isDragging, setIsDragging] = useState<'avatar' | 'outfit' | null>(null)
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 })
   
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const outfitInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+
+  // 保存图片URL到localStorage
+  const saveImageUrls = useCallback(() => {
+    console.log(`💾 保存图片URL到 localStorage:`, { avatarUrl: !!avatarUrl, outfitUrl: !!outfitUrl })
+    try {
+      const imageUrls = {
+        avatarUrl,
+        outfitUrl,
+        timestamp: Date.now()
+      }
+      localStorage.setItem(IMAGE_URL_STORAGE_KEY, JSON.stringify(imageUrls))
+      console.log(`✅ 图片URL保存成功`)
+    } catch (error) {
+      console.warn('❌ 保存图片URL失败:', error)
+    }
+  }, [avatarUrl, outfitUrl])
+
+  // 加载图片URL从localStorage
+  const loadImageUrls = useCallback(() => {
+    console.log(`📂 从 localStorage 加载图片URL`)
+    try {
+      const savedUrls = localStorage.getItem(IMAGE_URL_STORAGE_KEY)
+      if (savedUrls) {
+        const parsedUrls = JSON.parse(savedUrls)
+        console.log(`📊 解析的图片URL:`, { 
+          avatarUrl: !!parsedUrls.avatarUrl, 
+          outfitUrl: !!parsedUrls.outfitUrl,
+          timestamp: parsedUrls.timestamp 
+        })
+        
+        // 检查URL是否仍然有效（不超过24小时）
+        const isExpired = Date.now() - parsedUrls.timestamp > 24 * 60 * 60 * 1000
+        if (!isExpired) {
+          setAvatarUrl(parsedUrls.avatarUrl)
+          setOutfitUrl(parsedUrls.outfitUrl)
+          console.log(`✅ 图片URL加载成功`)
+        } else {
+          console.log(`⏰ 图片URL已过期，清除缓存`)
+          localStorage.removeItem(IMAGE_URL_STORAGE_KEY)
+        }
+      }
+    } catch (error) {
+      console.warn('❌ 加载图片URL失败:', error)
+    }
+  }, [])
+
+  // 加载保存的位置状态
+  useEffect(() => {
+    console.log(`🚀 组件初始化，开始加载状态`)
+    try {
+      // 加载位置状态
+      const savedState = localStorage.getItem(POSITION_STORAGE_KEY)
+      console.log(`📂 从 localStorage 读取的位置状态:`, savedState)
+      if (savedState) {
+        const parsedState = JSON.parse(savedState)
+        console.log(`📊 解析后的位置状态:`, parsedState)
+        positionStateRef.current = {
+          avatarPosition: parsedState.avatarPosition || { x: 0.5, y: 0.06 },
+          outfitPosition: parsedState.outfitPosition || { x: 0.5, y: 0.4 },
+          avatarSize: parsedState.avatarSize || { width: 0.28, height: 0.28 },
+          outfitSize: parsedState.outfitSize || { width: 0.72, height: 0.72 }
+        }
+        // 同步到状态
+        setAvatarPosition(positionStateRef.current.avatarPosition)
+        setOutfitPosition(positionStateRef.current.outfitPosition)
+        setAvatarSize(positionStateRef.current.avatarSize)
+        setOutfitSize(positionStateRef.current.outfitSize)
+        console.log(`✅ 位置状态加载完成:`, positionStateRef.current)
+      } else {
+        console.log(`ℹ️ 没有找到保存的位置状态，使用默认值`)
+      }
+      
+      // 加载图片URL
+      loadImageUrls()
+    } catch (error) {
+      console.warn('❌ 加载状态失败:', error)
+    }
+  }, [loadImageUrls])
+
+  // 保存位置状态到 localStorage
+  const savePositionState = useCallback(() => {
+    console.log(`💾 保存位置状态到 localStorage:`, positionStateRef.current)
+    try {
+      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(positionStateRef.current))
+      console.log(`✅ 位置状态保存成功`)
+    } catch (error) {
+      console.warn('❌ 保存位置状态失败:', error)
+    }
+  }, [])
 
   const pickLocal = (ref: React.RefObject<HTMLInputElement | null>) => ref.current?.click()
 
@@ -67,9 +171,21 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
       alert('图片文件大小不能超过10MB'); return
     }
     const url = await fileToDataUrl(file)
-    if (kind === 'avatar') setAvatarUrl(url)
-    else setOutfitUrl(url)
+    console.log(`📁 选择了${kind}图片:`, file.name)
+    if (kind === 'avatar') {
+      setAvatarUrl(url)
+    } else {
+      setOutfitUrl(url)
+    }
   }
+
+  // 监听图片URL变化，自动保存到localStorage
+  useEffect(() => {
+    if (avatarUrl || outfitUrl) {
+      console.log(`🔄 图片URL变化，保存到localStorage`)
+      saveImageUrls()
+    }
+  }, [avatarUrl, outfitUrl, saveImageUrls])
 
   const loadImage = (src: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -91,11 +207,20 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
   }
 
   const compose = useCallback(async () => {
+    console.log(`🎨 compose 函数开始执行`)
+    console.log(`📊 当前状态:`, {
+      avatarUrl: !!avatarUrl,
+      outfitUrl: !!outfitUrl,
+      positionState: positionStateRef.current
+    })
+    
     if (!avatarUrl || !outfitUrl) {
+      console.log(`❌ compose 失败: 缺少图片`, { avatarUrl: !!avatarUrl, outfitUrl: !!outfitUrl })
       alert('请先选择头像与服装图片')
       return
     }
     
+    console.log(`🖼️ 开始创建 canvas...`)
     const canvas = document.createElement('canvas')
     const size = 1024
     canvas.width = size
@@ -106,20 +231,31 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, size, size)
 
+    console.log(`📥 加载图片...`)
     const [avatarImg, outfitImg] = await Promise.all([loadImage(avatarUrl), loadImage(outfitUrl)])
+    console.log(`✅ 图片加载完成:`, { avatarImg: !!avatarImg, outfitImg: !!outfitImg })
 
-    // 使用可调整的位置和尺寸
-    const headW = size * avatarSize.width
-    const headH = size * avatarSize.height
-    const headX = size * avatarPosition.x - headW / 2
-    const headY = size * avatarPosition.y
+    // 使用当前的位置状态
+    const currentState = positionStateRef.current
+    console.log(`📍 使用位置状态:`, currentState)
+    
+    const headW = size * currentState.avatarSize.width
+    const headH = size * currentState.avatarSize.height
+    const headX = size * currentState.avatarPosition.x - headW / 2
+    const headY = size * currentState.avatarPosition.y
 
-    const outfitW = size * outfitSize.width
-    const outfitH = size * outfitSize.height
-    const outfitX = size * outfitPosition.x - outfitW / 2
-    const outfitY = size * outfitPosition.y
+    const outfitW = size * currentState.outfitSize.width
+    const outfitH = size * currentState.outfitSize.height
+    const outfitX = size * currentState.outfitPosition.x - outfitW / 2
+    const outfitY = size * currentState.outfitPosition.y
+
+    console.log(`🎯 计算的位置:`, {
+      head: { x: headX, y: headY, w: headW, h: headH },
+      outfit: { x: outfitX, y: outfitY, w: outfitW, h: outfitH }
+    })
 
     // 绘制服装
+    console.log(`👕 绘制服装...`)
     drawContain(ctx, outfitImg, outfitW, outfitH, outfitX, outfitY)
 
     // 以图片中心裁剪为正方形再绘制，避免变形
@@ -128,6 +264,7 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
     const sy = (avatarImg.height - s) / 2
 
     // 添加头像阴影效果
+    console.log(`👤 绘制头像...`)
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.08)'
     ctx.shadowBlur = 8
@@ -140,54 +277,120 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
     ctx.drawImage(avatarImg, sx, sy, s, s, headX, headY, headW, headH)
     ctx.restore()
 
+    console.log(`💾 生成预览URL...`)
     const url = canvas.toDataURL('image/png')
+    console.log(`✅ 预览URL生成完成，长度:`, url.length)
     setPreviewUrl(url)
-  }, [avatarUrl, outfitUrl, avatarPosition, outfitPosition, avatarSize, outfitSize])
+    console.log(`🎨 compose 函数执行完成`)
+  }, [avatarUrl, outfitUrl])
+
+  // 更新位置状态的统一函数
+  const updatePositionState = useCallback((type: 'avatar' | 'outfit', newPosition: Position) => {
+    console.log(`🔄 updatePositionState 被调用:`, { type, newPosition })
+    console.log(`📊 更新前状态:`, {
+      avatarPosition: positionStateRef.current.avatarPosition,
+      outfitPosition: positionStateRef.current.outfitPosition
+    })
+    
+    if (type === 'avatar') {
+      positionStateRef.current.avatarPosition = newPosition
+      setAvatarPosition(newPosition)
+      console.log(`✅ 头像位置已更新:`, newPosition)
+    } else {
+      positionStateRef.current.outfitPosition = newPosition
+      setOutfitPosition(newPosition)
+      console.log(`✅ 服装位置已更新:`, newPosition)
+    }
+    
+    console.log(`📊 更新后状态:`, {
+      avatarPosition: positionStateRef.current.avatarPosition,
+      outfitPosition: positionStateRef.current.outfitPosition
+    })
+    
+    savePositionState()
+    console.log(`💾 位置状态已保存到 localStorage`)
+    
+    // 立即触发重新合成
+    if (avatarUrl && outfitUrl) {
+      console.log(`🎨 准备调用 compose 函数...`)
+      compose()
+    } else {
+      console.log(`⚠️ 无法调用 compose: avatarUrl=${!!avatarUrl}, outfitUrl=${!!outfitUrl}`)
+    }
+  }, [savePositionState, avatarUrl, outfitUrl, compose])
 
   // 处理拖拽开始
   const handleMouseDown = (e: React.MouseEvent, type: 'avatar' | 'outfit') => {
-    if (!isAdjusting) return
+    console.log(`🖱️ handleMouseDown 被调用:`, { type, isAdjusting })
+    if (!isAdjusting) {
+      console.log(`❌ 不在调整模式，忽略拖拽`)
+      return
+    }
     e.preventDefault()
     setIsDragging(type)
+    console.log(`✅ 开始拖拽:`, type)
+    
     const rect = canvasRef.current?.getBoundingClientRect()
     if (rect) {
-      setDragStart({
+      const dragStartPos = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
-      })
+      }
+      setDragStart(dragStartPos)
+      console.log(`📍 拖拽起始位置:`, dragStartPos)
+    } else {
+      console.log(`❌ 无法获取 canvas 位置信息`)
     }
   }
 
   // 处理拖拽移动
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !canvasRef.current) return
+    if (!isDragging) {
+      console.log(`🖱️ handleMouseMove: 未在拖拽状态`)
+      return
+    }
+    
+    if (!canvasRef.current) {
+      console.log(`❌ handleMouseMove: canvasRef 为空`)
+      return
+    }
+    
+    console.log(`🖱️ handleMouseMove 被调用:`, { isDragging, clientX: e.clientX, clientY: e.clientY })
     
     const rect = canvasRef.current.getBoundingClientRect()
+    console.log(`📐 Canvas 尺寸:`, { width: rect.width, height: rect.height })
+    
     const x = (e.clientX - rect.left) / rect.width
     const y = (e.clientY - rect.top) / rect.height
+    
+    console.log(`📍 计算的位置:`, { x, y })
     
     // 限制在画布范围内
     const clampedX = Math.max(0.1, Math.min(0.9, x))
     const clampedY = Math.max(0.05, Math.min(0.9, y))
     
-    if (isDragging === 'avatar') {
-      setAvatarPosition({ x: clampedX, y: clampedY })
-    } else {
-      setOutfitPosition({ x: clampedX, y: clampedY })
-    }
-  }, [isDragging])
+    console.log(`🔒 限制后的位置:`, { x: clampedX, y: clampedY })
+    
+    const newPosition = { x: clampedX, y: clampedY }
+    console.log(`🔄 调用 updatePositionState:`, { type: isDragging, newPosition })
+    updatePositionState(isDragging, newPosition)
+  }, [isDragging, updatePositionState])
 
   // 处理拖拽结束
   const handleMouseUp = useCallback(() => {
+    console.log(`🖱️ handleMouseUp 被调用，结束拖拽:`, isDragging)
     setIsDragging(null)
   }, [])
 
   // 添加和移除全局鼠标事件监听器
   useEffect(() => {
+    console.log(`🔧 useEffect: 设置鼠标事件监听器`, { isDragging })
     if (isDragging) {
+      console.log(`✅ 添加 mousemove 和 mouseup 事件监听器`)
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
       return () => {
+        console.log(`🗑️ 移除 mousemove 和 mouseup 事件监听器`)
         document.removeEventListener('mousemove', handleMouseMove)
         document.removeEventListener('mouseup', handleMouseUp)
       }
@@ -196,8 +399,19 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
 
   // 当位置或尺寸改变时重新合成
   useEffect(() => {
+    console.log(`🔄 useEffect: 位置变化监听`, { 
+      avatarUrl: !!avatarUrl, 
+      outfitUrl: !!outfitUrl,
+      avatarPosition,
+      outfitPosition,
+      avatarSize,
+      outfitSize
+    })
     if (avatarUrl && outfitUrl) {
+      console.log(`🎨 位置变化，触发重新合成`)
       compose()
+    } else {
+      console.log(`⚠️ 位置变化但缺少图片，跳过重新合成`)
     }
   }, [avatarPosition, outfitPosition, avatarSize, outfitSize, compose])
 
@@ -208,31 +422,65 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
   }
 
   const confirmUseAsInput = async () => {
+    console.log(`🔘 confirmUseAsInput 被调用`)
     if (!previewUrl) {
+      console.log(`❌ 没有预览图片，无法设为输入`)
       alert('请先点击"合成预览"'); return
     }
+    console.log(`✅ 开始转换为文件...`)
     const file = await dataUrlToFile(previewUrl, 'composed.png')
     const base64 = previewUrl.split(',')[1] || ''
+    console.log(`📤 调用 onComposedUpload:`, { fileName: file.name, base64Length: base64.length })
     onComposedUpload(file, base64)
   }
 
   const clearAll = () => {
+    console.log(`🗑️ clearAll 被调用`)
     setAvatarUrl(null)
     setOutfitUrl(null)
     setPreviewUrl(null)
     setIsAdjusting(false)
-    setAvatarPosition({ x: 0.5, y: 0.06 })
-    setOutfitPosition({ x: 0.5, y: 0.4 })
-    setAvatarSize({ width: 0.28, height: 0.28 })
-    setOutfitSize({ width: 0.72, height: 0.72 })
+    
+    // 清除localStorage中的图片URL
+    try {
+      localStorage.removeItem(IMAGE_URL_STORAGE_KEY)
+      console.log(`🗑️ 已清除localStorage中的图片URL`)
+    } catch (error) {
+      console.warn('❌ 清除图片URL失败:', error)
+    }
+    
+    // 重置位置状态
+    const defaultState = {
+      avatarPosition: { x: 0.5, y: 0.06 },
+      outfitPosition: { x: 0.5, y: 0.4 },
+      avatarSize: { width: 0.28, height: 0.28 },
+      outfitSize: { width: 0.72, height: 0.72 }
+    }
+    positionStateRef.current = defaultState
+    setAvatarPosition(defaultState.avatarPosition)
+    setOutfitPosition(defaultState.outfitPosition)
+    setAvatarSize(defaultState.avatarSize)
+    setOutfitSize(defaultState.outfitSize)
+    savePositionState()
+    console.log(`✅ 所有状态已重置`)
     onRemove?.()
   }
 
   const resetPositions = () => {
-    setAvatarPosition({ x: 0.5, y: 0.06 })
-    setOutfitPosition({ x: 0.5, y: 0.4 })
-    setAvatarSize({ width: 0.28, height: 0.28 })
-    setOutfitSize({ width: 0.72, height: 0.72 })
+    console.log(`🔄 resetPositions 被调用`)
+    const defaultState = {
+      avatarPosition: { x: 0.5, y: 0.06 },
+      outfitPosition: { x: 0.5, y: 0.4 },
+      avatarSize: { width: 0.28, height: 0.28 },
+      outfitSize: { width: 0.72, height: 0.72 }
+    }
+    positionStateRef.current = defaultState
+    setAvatarPosition(defaultState.avatarPosition)
+    setOutfitPosition(defaultState.outfitPosition)
+    setAvatarSize(defaultState.avatarSize)
+    setOutfitSize(defaultState.outfitSize)
+    savePositionState()
+    console.log(`✅ 位置已重置为默认值`)
   }
 
   return (
@@ -253,7 +501,10 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
           </div>
           <div className="flex gap-2 flex-wrap">
             {PRESET_AVATARS.map((src) => (
-              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${avatarUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => setAvatarUrl(src)}>
+              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${avatarUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
+                console.log(`📁 选择了预设头像:`, src)
+                setAvatarUrl(src)
+              }}>
                 <img src={src} alt="avatar preset" className="w-16 h-16 object-cover rounded-md" />
               </button>
             ))}
@@ -276,7 +527,10 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
           </div>
           <div className="flex gap-2 flex-wrap">
             {PRESET_OUTFITS.map((src) => (
-              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${outfitUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => setOutfitUrl(src)}>
+              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${outfitUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
+                console.log(`📁 选择了预设服装:`, src)
+                setOutfitUrl(src)
+              }}>
                 <img src={src} alt="outfit preset" className="w-16 h-16 object-cover rounded-md" />
               </button>
             ))}
@@ -291,16 +545,32 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
         {/* 合成与预览 */}
         <div className="rounded-lg border-2 border-[#cde9df] p-3">
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="h-9 px-4" onClick={compose}>合成预览</Button>
+            <Button variant="outline" className="h-9 px-4" onClick={() => {
+              console.log(`🔘 合成预览按钮被点击`)
+              compose()
+            }}>合成预览</Button>
             <Button 
               className={`h-9 px-4 ${isAdjusting ? 'bg-blue-600' : 'bg-[#019863]'} text-white`} 
-              onClick={() => setIsAdjusting(!isAdjusting)}
+              onClick={() => {
+                console.log(`🔘 调整位置按钮被点击，当前状态:`, { isAdjusting })
+                setIsAdjusting(!isAdjusting)
+                console.log(`✅ 调整模式已切换为:`, !isAdjusting)
+              }}
             >
               {isAdjusting ? '完成调整' : '调整位置'}
             </Button>
-            <Button variant="outline" className="h-9 px-4" onClick={resetPositions}>重置位置</Button>
-            <Button className="h-9 px-4 bg-[#019863] text-white" onClick={confirmUseAsInput} disabled={!previewUrl}>设为输入</Button>
-            <Button variant="outline" className="h-9 px-4 text-red-600 border-red-300 hover:bg-red-50" onClick={clearAll}>清除选择</Button>
+            <Button variant="outline" className="h-9 px-4" onClick={() => {
+              console.log(`🔘 重置位置按钮被点击`)
+              resetPositions()
+            }}>重置位置</Button>
+            <Button className="h-9 px-4 bg-[#019863] text-white" onClick={() => {
+              console.log(`🔘 设为输入按钮被点击`)
+              confirmUseAsInput()
+            }} disabled={!previewUrl}>设为输入</Button>
+            <Button variant="outline" className="h-9 px-4 text-red-600 border-red-300 hover:bg-red-50" onClick={() => {
+              console.log(`🔘 清除选择按钮被点击`)
+              clearAll()
+            }}>清除选择</Button>
           </div>
           
           {previewUrl && (

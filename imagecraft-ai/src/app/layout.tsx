@@ -1,12 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
-});
 
 export const metadata: Metadata = {
   title: "ImageCraft AI - AI Image Generation",
@@ -21,7 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} antialiased`}
+        className="antialiased"
         suppressHydrationWarning
       >
         {children}

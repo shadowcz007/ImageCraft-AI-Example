@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // 基本配置，避免字体和 Turbopack 问题
 };
 
 export default nextConfig;
