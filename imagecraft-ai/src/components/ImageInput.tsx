@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button'
 
 interface ImageInputProps {
   onImageUpload?: (imageFile: File, imageBase64: string) => void
+  onRemoveImage?: () => void
+  imageName?: string
+  uploadedImageUrl?: string
 }
 
-export default function ImageInput({ onImageUpload }: ImageInputProps) {
+export default function ImageInput({ onImageUpload, onRemoveImage, imageName: propImageName, uploadedImageUrl }: ImageInputProps) {
   const [dragActive, setDragActive] = useState(false)
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
-  const [imageName, setImageName] = useState<string>('')
+  const [uploadedImage, setUploadedImage] = useState<string | null>(uploadedImageUrl || null)
+  const [imageName, setImageName] = useState<string>(propImageName || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -72,6 +75,7 @@ export default function ImageInput({ onImageUpload }: ImageInputProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+    onRemoveImage?.()
   }
 
   return (

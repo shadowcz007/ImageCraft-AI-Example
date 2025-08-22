@@ -88,16 +88,22 @@ export default function GeneratedImage({
       )}
 
       <div className="flex w-full grow bg-[#f8fcfa] p-2 sm:p-4">
-        <div className="w-full gap-1 sm:gap-2 overflow-hidden bg-[#f8fcfa] aspect-[3/2] rounded-lg flex">
+        <div className="w-full gap-1 sm:gap-2 overflow-hidden bg-[#f8fcfa] rounded-lg flex">
           {generatedImageUrl ? (
-            <div
-              className="w-full bg-center bg-no-repeat bg-cover aspect-auto rounded-none flex-1"
-              style={{
-                backgroundImage: `url("${generatedImageUrl}")`
-              }}
-            />
+            <div className="w-full flex items-center justify-center bg-white rounded-lg overflow-hidden">
+              <img
+                src={generatedImageUrl}
+                alt="Generated Image"
+                className="w-full h-auto max-h-[600px] object-contain rounded-lg"
+                style={{ maxWidth: '100%' }}
+                onError={(e) => {
+                  console.error('图片加载失败:', e)
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            </div>
           ) : isGenerating ? (
-            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg">
+            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg min-h-[400px]">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-[#019863] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <p className="text-[#0c1c17] font-medium">正在生成图像...</p>
@@ -105,7 +111,7 @@ export default function GeneratedImage({
               </div>
             </div>
           ) : (
-            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg">
+            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg min-h-[400px]">
               <div className="text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256" className="text-[#46a080] mx-auto mb-4">
                   <path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z" />
