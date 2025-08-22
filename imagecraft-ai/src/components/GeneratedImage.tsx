@@ -1,23 +1,123 @@
+'use client'
+
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
-export default function GeneratedImage() {
+interface GeneratedImageProps {
+  generatedImageUrl?: string
+  isGenerating?: boolean
+  generationStatus?: string
+  onDownload?: () => void
+}
+
+export default function GeneratedImage({ 
+  generatedImageUrl, 
+  isGenerating = false, 
+  generationStatus = '',
+  onDownload 
+}: GeneratedImageProps) {
+  const [showSettings, setShowSettings] = useState(false)
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Processing':
+        return 'text-blue-600'
+      case 'Ready':
+        return 'text-green-600'
+      case 'Error':
+      case 'Failed':
+        return 'text-red-600'
+      default:
+        return 'text-gray-600'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'Processing':
+        return '正在生成图像...'
+      case 'Ready':
+        return '图像生成完成！'
+      case 'Error':
+      case 'Failed':
+        return '图像生成失败'
+      default:
+        return '等待生成...'
+    }
+  }
+
   return (
     <>
       <div className="flex flex-wrap justify-between gap-2 sm:gap-3 p-2 sm:p-4">
         <p className="text-[#0c1c17] tracking-light text-xl sm:text-2xl lg:text-[32px] font-bold leading-tight min-w-48 sm:min-w-72">
           Generated Image
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSettings(!showSettings)}
+          className="text-[#46a080] border-[#cde9df] hover:bg-[#e6f4ef]"
+        >
+          {showSettings ? '隐藏设置' : '显示设置'}
+        </Button>
       </div>
+
+      {showSettings && (
+        <div className="p-2 sm:p-4">
+          <div className="bg-[#e6f4ef] rounded-lg p-4">
+            <h3 className="text-[#0c1c17] font-bold mb-2">生成状态</h3>
+            {isGenerating ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-[#019863] border-t-transparent rounded-full animate-spin"></div>
+                  <span className={`text-sm font-medium ${getStatusColor(generationStatus)}`}>
+                    {getStatusText(generationStatus)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-[#019863] h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[#46a080]">
+                {generatedImageUrl ? '图像已生成完成' : '等待开始生成'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex w-full grow bg-[#f8fcfa] p-2 sm:p-4">
         <div className="w-full gap-1 sm:gap-2 overflow-hidden bg-[#f8fcfa] aspect-[3/2] rounded-lg flex">
-          <div
-            className="w-full bg-center bg-no-repeat bg-cover aspect-auto rounded-none flex-1"
-            style={{
-              backgroundImage: `url("https://lh3.googleusercontent.com/aida-public/AB6AXuBuMSU04oMkCfMiv24UXBe3-D_Zg8fEAiTHFBc9OXcG2o96F32AjP207dYP_J88SWtF02QGwp8L5OsTpjYK8QMxdjByTANGNJyMwwgWVml64lHyoYSIMTkpE_39qQohf30pFESKoRBrltcNSMFK7gwVPHijXsv4jOneeoNefo9JmaxeaUZBSrlLlXVj-DDLnWK5nYA-PJX-4FqqHkfu2QSZsUKjyyriDz32NWSwvfxbouwLbzGp7LNL2SSVkaXbTf15D4tB1xUfbI07")`
-            }}
-          />
+          {generatedImageUrl ? (
+            <div
+              className="w-full bg-center bg-no-repeat bg-cover aspect-auto rounded-none flex-1"
+              style={{
+                backgroundImage: `url("${generatedImageUrl}")`
+              }}
+            />
+          ) : isGenerating ? (
+            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-[#019863] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-[#0c1c17] font-medium">正在生成图像...</p>
+                <p className="text-[#46a080] text-sm mt-2">{generationStatus}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg">
+              <div className="text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256" className="text-[#46a080] mx-auto mb-4">
+                  <path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z" />
+                </svg>
+                <p className="text-[#0c1c17] font-medium">等待生成图像</p>
+                <p className="text-[#46a080] text-sm mt-2">上传图片并输入提示词后开始生成</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
       <div className="p-2 sm:p-4">
         <div className="gap-1 sm:gap-2 px-2 sm:px-4 flex flex-wrap justify-start">
           <div className="flex flex-col items-center gap-1 sm:gap-2 bg-[#f8fcfa] py-2 sm:py-2.5 text-center w-16 sm:w-20">

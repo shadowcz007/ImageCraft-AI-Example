@@ -1,19 +1,117 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { LLMService } from '@/lib/llmService'
 
 interface PromptInteractionProps {
   prompt: string
   setPrompt: (prompt: string) => void
   onSend: () => void
+  finalPrompt: string
+  onGenerateImage?: () => void
+  isGenerating?: boolean
 }
 
-export default function PromptInteraction({ prompt, setPrompt, onSend }: PromptInteractionProps) {
+interface Message {
+  id: string
+  type: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
+
+export default function PromptInteraction({ 
+  prompt, 
+  setPrompt, 
+  onSend, 
+  finalPrompt,
+  onGenerateImage,
+  isGenerating = false
+}: PromptInteractionProps) {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      type: 'assistant',
+      content: 'Hi there! How can I help you refine your image prompt today? Try saying something like "将背景改为日落时分" or "转换为黑白照片风格"',
+      timestamp: new Date()
+    }
+  ])
+
+  // 默认的有效输入示例
+  const defaultExamples = [
+    '将背景改为日落时分',
+    '转换为黑白照片风格',
+    '添加一些云朵到天空',
+    '制作成水彩画效果',
+    '调整光线为暖色调'
+  ]
+
+  useEffect(() => {
+    // 如果输入框为空，自动填充一个示例
+    if (!prompt.trim()) {
+      const randomExample = defaultExamples[Math.floor(Math.random() * defaultExamples.length)]
+      setPrompt(randomExample)
+    }
+  }, []) // 只在组件挂载时执行一次
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      onSend()
+      handleSend()
     }
+  }
+
+  const handleSend = () => {
+    if (!prompt.trim()) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: prompt,
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+
+    // 使用LLM分析用户输入
+    const analysis = LLMService.analyzePrompt(prompt, finalPrompt)
+    
+    let assistantResponse = ''
+    let shouldGenerate = false
+
+    if (analysis.isComplete) {
+      assistantResponse = `很好！你的输入看起来是一个完整的编辑指令。${analysis.reason} 我现在将开始生成图像。`
+      shouldGenerate = true
+    } else {
+      assistantResponse = `我理解你想要编辑图像。${analysis.reason} 建议的完整提示词：${analysis.suggestedPrompt}`
+    }
+
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      type: 'assistant',
+      content: assistantResponse,
+      timestamp: new Date()
+    }
+
+    setMessages(prev => [...prev, assistantMessage])
+
+    // 如果LLM判断为完整，则调用图像生成
+    if (shouldGenerate && onGenerateImage) {
+      onGenerateImage()
+    }
+
+    // 清空输入并设置下一个示例
+    setPrompt('')
+    setTimeout(() => {
+      const nextExample = defaultExamples[Math.floor(Math.random() * defaultExamples.length)]
+      setPrompt(nextExample)
+    }, 100)
+  }
+
+  const handleExampleClick = (example: string) => {
+    setPrompt(example)
   }
 
   return (
@@ -21,23 +119,54 @@ export default function PromptInteraction({ prompt, setPrompt, onSend }: PromptI
       <h2 className="text-[#0c1c17] text-lg sm:text-xl lg:text-[22px] font-bold leading-tight tracking-[-0.015em] px-2 sm:px-4 pb-3 pt-5">
         Prompt Interaction
       </h2>
-      <div className="flex items-end gap-2 sm:gap-3 p-2 sm:p-4">
-        <Avatar className="w-8 sm:w-10 shrink-0">
-          <AvatarImage 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfs-givPrfvb_RkQW1h8F00s2DrzCL_YugssDijIprTC8VyZIRoRdtLQs48lJCJHI081bhK0SZUAa6OpYwAbxXo1GlMITMqn_HFqzz485xssZStpHzFLXqu7dbNmZp4W8xw208fiUCv97ZBO9bW6Ny5kCYJfeBjcXtfqnBtd_ni1vXKmd7kmmwUXXkkjITs9zuITYI8oGQO7KEBScKF5lFaZ3PQ7L5SZI3FkyQpI7sMHLxVAqScSifjs66dL88vSDFit7EaVQnBEXn"
-            alt="AI Assistant"
-          />
-          <AvatarFallback>AI</AvatarFallback>
-        </Avatar>
-        <div className="flex flex-1 flex-col gap-1 items-start">
-          <p className="text-[#46a080] text-xs sm:text-[13px] font-normal leading-normal max-w-[360px]">
-            AI Assistant
-          </p>
-          <p className="text-sm sm:text-base font-normal leading-normal flex max-w-[360px] rounded-lg px-3 sm:px-4 py-2 sm:py-3 bg-[#e6f4ef] text-[#0c1c17]">
-            Hi there! How can I help you refine your image prompt today?
-          </p>
+      
+      {/* 消息历史 */}
+      <div className="max-h-64 overflow-y-auto px-2 sm:px-4 mb-4">
+        {messages.map((message) => (
+          <div key={message.id} className="flex items-end gap-2 sm:gap-3 mb-3">
+            <Avatar className="w-8 sm:w-10 shrink-0">
+              {message.type === 'assistant' ? (
+                <>
+                  <AvatarImage 
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfs-givPrfvb_RkQW1h8F00s2DrzCL_YugssDijIprTC8VyZIRoRdtLQs48lJCJHI081bhK0SZUAa6OpYwAbxXo1GlMITMqn_HFqzz485xssZStpHzFLXqu7dbNmZp4W8xw208fiUCv97ZBO9bW6Ny5kCYJfeBjcXtfqnBtd_ni1vXKmd7kmmwUXXkkjITs9zuITYI8oGQO7KEBScKF5lFaZ3PQ7L5SZI3FkyQpI7sMHLxVAqScSifjs66dL88vSDFit7EaVQnBEXn"
+                    alt="AI Assistant"
+                  />
+                  <AvatarFallback>AI</AvatarFallback>
+                </>
+              ) : (
+                <AvatarFallback className="bg-[#019863] text-white">U</AvatarFallback>
+              )}
+            </Avatar>
+            <div className="flex flex-1 flex-col gap-1 items-start">
+              <p className={`text-xs sm:text-[13px] font-normal leading-normal max-w-[360px] ${
+                message.type === 'assistant' ? 'text-[#46a080]' : 'text-[#019863]'
+              }`}>
+                {message.type === 'assistant' ? 'AI Assistant' : 'You'}
+              </p>
+              <p className="text-sm sm:text-base font-normal leading-normal flex max-w-[360px] rounded-lg px-3 sm:px-4 py-2 sm:py-3 bg-[#e6f4ef] text-[#0c1c17]">
+                {message.content}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 快速示例按钮 */}
+      <div className="px-2 sm:px-4 mb-3">
+        <p className="text-xs text-[#46a080] mb-2">快速示例：</p>
+        <div className="flex flex-wrap gap-2">
+          {defaultExamples.map((example, index) => (
+            <button
+              key={index}
+              onClick={() => handleExampleClick(example)}
+              className="text-xs px-2 py-1 bg-[#e6f4ef] text-[#0c1c17] rounded-md hover:bg-[#d1e8e0] transition-colors"
+            >
+              {example}
+            </button>
+          ))}
         </div>
       </div>
+
       <div className="flex items-center px-2 sm:px-4 py-2 sm:py-3 gap-2 sm:gap-3">
         <div className="flex flex-col min-w-32 sm:min-w-40 h-10 sm:h-12 flex-1">
           <div className="flex w-full flex-1 items-stretch rounded-lg h-full">
@@ -47,6 +176,7 @@ export default function PromptInteraction({ prompt, setPrompt, onSend }: PromptI
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyPress={handleKeyPress}
+              disabled={isGenerating}
             />
             <div className="flex border-none bg-[#e6f4ef] items-center justify-center pr-2 sm:pr-4 rounded-r-lg border-l-0">
               <div className="flex items-center gap-2 sm:gap-4 justify-end">
@@ -55,6 +185,7 @@ export default function PromptInteraction({ prompt, setPrompt, onSend }: PromptI
                     variant="ghost" 
                     size="sm"
                     className="flex items-center justify-center p-1 sm:p-1.5 text-[#46a080] hover:bg-[#d1e8e0]"
+                    disabled={isGenerating}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" className="sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 256 256">
                       <path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z" />
@@ -62,10 +193,11 @@ export default function PromptInteraction({ prompt, setPrompt, onSend }: PromptI
                   </Button>
                 </div>
                 <Button
-                  className="min-w-[50px] sm:min-w-[84px] max-w-[480px] h-7 sm:h-8 px-2 sm:px-4 bg-[#019863] text-[#f8fcfa] text-xs sm:text-sm font-medium leading-normal block hover:bg-[#017a4f]"
-                  onClick={onSend}
+                  className="min-w-[50px] sm:min-w-[84px] max-w-[480px] h-7 sm:h-8 px-2 sm:px-4 bg-[#019863] text-[#f8fcfa] text-xs sm:text-sm font-medium leading-normal block hover:bg-[#017a4f] disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleSend}
+                  disabled={isGenerating || !prompt.trim()}
                 >
-                  Send
+                  {isGenerating ? '生成中...' : 'Send'}
                 </Button>
               </div>
             </div>
