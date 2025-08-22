@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Header from './Header'
-import ImageInput from './ImageInput'
+import AvatarOutfitComposer from './AvatarOutfitComposer'
 import PromptInteraction from './PromptInteraction'
 import GeneratedImage from './GeneratedImage'
 import ApiKeySettings from './ApiKeySettings'
@@ -91,7 +91,14 @@ export default function ImageCraftApp() {
         }
 
         if (isCacheValid && cachedGeneratedImage) {
-          setGeneratedImageUrl(cachedGeneratedImage)
+          // 验证缓存的图片URL是否有效
+          try {
+            new URL(cachedGeneratedImage)
+            setGeneratedImageUrl(cachedGeneratedImage)
+          } catch {
+            console.warn('缓存的图片URL无效，已清除:', cachedGeneratedImage)
+            localStorage.removeItem(CACHE_KEYS.GENERATED_IMAGE)
+          }
         }
 
         if (cachedFinalPrompt) {
@@ -281,11 +288,12 @@ export default function ImageCraftApp() {
         <Header />
         <div className="gap-1 px-2 sm:px-4 md:px-6 flex flex-1 justify-center py-3 sm:py-5">
           <div className="layout-content-container flex flex-col w-full max-w-sm lg:w-80 lg:max-w-none">
-            <ImageInput 
-              onImageUpload={handleImageUpload}
-              imageName={imageName}
-              uploadedImageUrl={imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined}
-              onRemoveImage={handleRemoveImage}
+            {/* 新的头像+服装输入与合成 */}
+            {/* 合成后的 dataURL 会转成 File 后通过原有 handleImageUpload 回传，不改 API */}
+            <AvatarOutfitComposer
+              onComposedUpload={handleImageUpload}
+              cachedComposedDataUrl={imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined}
+              onRemove={handleRemoveImage}
             />
             {hasValidCache && (
               <div className="px-2 sm:px-4 pb-2">

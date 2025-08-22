@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>头像服装合成测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8fcfa;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+        }
+        
+        .image-preview {
+            border: 2px solid #cde9df;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .composed-image {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #019863;
+            border-radius: 8px;
+        }
+        
+        button {
+            background: #019863;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #017a4f;
+        }
+        
+        .status {
+            color: #46a080;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>头像服装合成测试</h1>
+
+        <div class="test-section">
+            <h2>测试说明</h2>
+            <p>这个页面用于测试头像和服装的合成效果，验证位置调整是否解决了重叠问题。</p>
+        </div>
+
+        <div class="test-section">
+            <h2>合成预览</h2>
+            <div class="image-preview">
+                <canvas id="compositionCanvas" width="512" height="512" style="border: 1px solid #ccc;"></canvas>
+            </div>
+            <button onclick="testComposition()">测试合成</button>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>优化说明</h2>
+            <ul>
+                <li>头像尺寸：28% 的画布宽度</li>
+                <li>头像位置：画布顶部 6% 位置</li>
+                <li>服装尺寸：72% 的画布宽度</li>
+                <li>服装位置：头像下方，间距为头像高度的 70%</li>
+                <li>阴影效果：轻微阴影，增强层次感</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function testComposition() {
+            const canvas = document.getElementById('compositionCanvas');
+            const ctx = canvas.getContext('2d');
+            const status = document.getElementById('status');
+
+            status.textContent = '正在测试合成...';
+
+            // 创建测试图片
+            const avatarImg = new Image();
+            const outfitImg = new Image();
+
+            avatarImg.onload = outfitImg.onload = function() {
+                if (avatarImg.complete && outfitImg.complete) {
+                    composeImages();
+                }
+            };
+
+            avatarImg.src = '/presets/avatars/578.png';
+            outfitImg.src = '/presets/outfits/120.png';
+
+            function composeImages() {
+                const size = 512;
+                canvas.width = size;
+                canvas.height = size;
+
+                // 背景
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, size, size);
+
+                // 计算头像尺寸和位置
+                const headW = size * 0.28;
+                const headH = headW;
+                const headX = (size - headW) / 2;
+                const headY = size * 0.06;
+
+                // 计算服装尺寸和位置
+                const outfitW = size * 0.72;
+                const outfitH = size * 0.72;
+                const outfitX = (size - outfitW) / 2;
+                const outfitY = headY + headH * 0.7;
+
+                // 绘制服装
+                drawContain(ctx, outfitImg, outfitW, outfitH, outfitX, outfitY);
+
+                // 绘制头像
+                const s = Math.min(avatarImg.width, avatarImg.height);
+                const sx = (avatarImg.width - s) / 2;
+                const sy = (avatarImg.height - s) / 2;
+
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,0,0,0.08)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 2;
+
+                ctx.beginPath();
+                ctx.arc(headX + headW / 2, headY + headH / 2, headW / 2, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(avatarImg, sx, sy, s, s, headX, headY, headW, headH);
+                ctx.restore();
+
+                status.textContent = '合成完成！头像和服装已正确分离。';
+            }
+
+            function drawContain(ctx, img, boxW, boxH, dx, dy) {
+                const scale = Math.min(boxW / img.width, boxH / img.height);
+                const w = img.width * scale;
+                const h = img.height * scale;
+                const x = dx + (boxW - w) / 2;
+                const y = dy + (boxH - h) / 2;
+                ctx.drawImage(img, x, y, w, h);
+                return {
+                    x,
+                    y,
+                    w,
+                    h
+                };
+            }
+        }
+    </script>
+</body>
+
+</html>

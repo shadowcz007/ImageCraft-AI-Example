@@ -17,6 +17,7 @@ export default function GeneratedImage({
   onDownload 
 }: GeneratedImageProps) {
   const [showSettings, setShowSettings] = useState(false)
+  const [imageLoadError, setImageLoadError] = useState(false)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -89,7 +90,7 @@ export default function GeneratedImage({
 
       <div className="flex w-full grow bg-[#f8fcfa] p-2 sm:p-4">
         <div className="w-full gap-1 sm:gap-2 overflow-hidden bg-[#f8fcfa] rounded-lg flex">
-          {generatedImageUrl ? (
+          {generatedImageUrl && !imageLoadError ? (
             <div className="w-full flex items-center justify-center bg-white rounded-lg overflow-hidden">
               <img
                 src={generatedImageUrl}
@@ -98,9 +99,26 @@ export default function GeneratedImage({
                 style={{ maxWidth: '100%' }}
                 onError={(e) => {
                   console.error('图片加载失败:', e)
-                  e.currentTarget.style.display = 'none'
+                  setImageLoadError(true)
                 }}
+                onLoad={() => setImageLoadError(false)}
               />
+            </div>
+          ) : (generatedImageUrl && imageLoadError) ? (
+            <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg min-h-[400px]">
+              <div className="text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256" className="text-red-500 mx-auto mb-4">
+                  <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48-88a8,8,0,0,1-8,8H136v32a8,8,0,0,1-16,0V136H88a8,8,0,0,1,0-16h32V88a8,8,0,0,1,16,0v32h32A8,8,0,0,1,176,128Z" />
+                </svg>
+                <p className="text-[#0c1c17] font-medium">图片加载失败</p>
+                <p className="text-[#46a080] text-sm mt-2">请重新生成图片或检查网络连接</p>
+                <button 
+                  onClick={() => setImageLoadError(false)}
+                  className="mt-3 px-4 py-2 bg-[#019863] text-white rounded-lg hover:bg-[#017a4f] transition-colors"
+                >
+                  重试加载
+                </button>
+              </div>
             </div>
           ) : isGenerating ? (
             <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg min-h-[400px]">
