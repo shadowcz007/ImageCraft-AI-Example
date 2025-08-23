@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 
 interface GeneratedImageProps {
@@ -18,6 +18,72 @@ export default function GeneratedImage({
 }: GeneratedImageProps) {
   const [showSettings, setShowSettings] = useState(false)
   const [imageLoadError, setImageLoadError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [isRetrying, setIsRetrying] = useState(false)
+
+  // 验证图片URL是否有效
+  const isValidImageUrl = (url: string): boolean => {
+    if (!url) return false
+    
+    try {
+      const urlObj = new URL(url)
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
+  // 检查当前图片URL是否有效
+  const currentImageUrl = generatedImageUrl && isValidImageUrl(generatedImageUrl) ? generatedImageUrl : null
+
+  // 当图片URL变化时，重置错误状态并预加载图片
+  useEffect(() => {
+    if (generatedImageUrl && isValidImageUrl(generatedImageUrl)) {
+      setImageLoadError(false)
+      setRetryCount(0)
+      
+      // 预加载图片以验证URL是否可访问
+      const preloadImage = new Image()
+      preloadImage.onload = () => {
+        console.log('图片预加载成功:', generatedImageUrl)
+        setImageLoadError(false)
+        setIsRetrying(false)
+      }
+      preloadImage.onerror = () => {
+        console.error('图片预加载失败:', generatedImageUrl)
+        setImageLoadError(true)
+        setIsRetrying(false)
+      }
+      preloadImage.src = generatedImageUrl
+    }
+  }, [generatedImageUrl])
+
+  // 重试加载图片
+  const handleRetry = () => {
+    if (retryCount < 3) {
+      setIsRetrying(true)
+      setRetryCount(prev => prev + 1)
+      setImageLoadError(false)
+      
+      // 延迟重试，避免立即重试
+      setTimeout(() => {
+        if (generatedImageUrl && isValidImageUrl(generatedImageUrl)) {
+          const retryImage = new Image()
+          retryImage.onload = () => {
+            console.log('图片重试加载成功:', generatedImageUrl)
+            setImageLoadError(false)
+            setIsRetrying(false)
+          }
+          retryImage.onerror = () => {
+            console.error('图片重试加载失败:', generatedImageUrl)
+            setImageLoadError(true)
+            setIsRetrying(false)
+          }
+          retryImage.src = generatedImageUrl
+        }
+      }, 1000 * retryCount) // 递增延迟
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -80,9 +146,20 @@ export default function GeneratedImage({
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-[#46a080]">
-                {generatedImageUrl ? '图像已生成完成' : '等待开始生成'}
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-[#46a080]">
+                  {generatedImageUrl ? '图像已生成完成' : '等待开始生成'}
+                </p>
+                {generatedImageUrl && (
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p>图片URL: {generatedImageUrl.substring(0, 50)}...</p>
+                    <p>URL有效性: {isValidImageUrl(generatedImageUrl) ? '有效' : '无效'}</p>
+                    <p>加载状态: {imageLoadError ? '失败' : '成功'}</p>
+                    <p>重试次数: {retryCount}/3</p>
+                    {isRetrying && <p className="text-blue-600">正在重试...</p>}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -90,33 +167,62 @@ export default function GeneratedImage({
 
       <div className="flex w-full grow bg-[#f8fcfa] p-2 sm:p-4">
         <div className="w-full gap-1 sm:gap-2 overflow-hidden bg-[#f8fcfa] rounded-lg flex">
-          {generatedImageUrl && !imageLoadError ? (
+          {currentImageUrl && !imageLoadError ? (
             <div className="w-full flex items-center justify-center bg-white rounded-lg overflow-hidden">
               <img
-                src={generatedImageUrl}
+                src={currentImageUrl}
                 alt="Generated Image"
                 className="w-full h-auto max-h-[600px] object-contain rounded-lg"
                 style={{ maxWidth: '100%' }}
                 onError={(e) => {
-                  console.error('图片加载失败:', e)
+                  const errorInfo = {
+                    imageUrl: currentImageUrl,
+                    originalUrl: generatedImageUrl,
+                    errorEvent: e,
+                    errorType: e?.type || 'unknown',
+                    errorMessage: '图片加载失败',
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent
+                  }
+                  
+                  console.error('图片加载失败详情:', errorInfo)
+                  
+                  // 尝试获取更多错误信息
+                  if (e?.target) {
+                    const imgElement = e.target as HTMLImageElement
+                    console.error('图片元素信息:', {
+                      src: imgElement.src,
+                      naturalWidth: imgElement.naturalWidth,
+                      naturalHeight: imgElement.naturalHeight,
+                      complete: imgElement.complete,
+                      currentSrc: imgElement.currentSrc
+                    })
+                  }
+                  
                   setImageLoadError(true)
                 }}
                 onLoad={() => setImageLoadError(false)}
               />
             </div>
-          ) : (generatedImageUrl && imageLoadError) ? (
+          ) : ((generatedImageUrl && !currentImageUrl) || (generatedImageUrl && imageLoadError)) ? (
             <div className="w-full flex items-center justify-center bg-[#e6f4ef] rounded-lg min-h-[400px]">
               <div className="text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256" className="text-red-500 mx-auto mb-4">
                   <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48-88a8,8,0,0,1-8,8H136v32a8,8,0,0,1-16,0V136H88a8,8,0,0,1,0-16h32V88a8,8,0,0,1,16,0v32h32A8,8,0,0,1,176,128Z" />
                 </svg>
                 <p className="text-[#0c1c17] font-medium">图片加载失败</p>
-                <p className="text-[#46a080] text-sm mt-2">请重新生成图片或检查网络连接</p>
+                <p className="text-[#46a080] text-sm mt-2">
+                  {!currentImageUrl && generatedImageUrl 
+                    ? '图片URL格式无效，请重新生成图片' 
+                    : '请重新生成图片或检查网络连接'
+                  }
+                </p>
                 <button 
-                  onClick={() => setImageLoadError(false)}
-                  className="mt-3 px-4 py-2 bg-[#019863] text-white rounded-lg hover:bg-[#017a4f] transition-colors"
+                  onClick={handleRetry}
+                  disabled={isRetrying || retryCount >= 3}
+                  className="mt-3 px-4 py-2 bg-[#019863] text-white rounded-lg hover:bg-[#017a4f] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  重试加载
+                  {isRetrying ? '重试中...' : retryCount >= 3 ? '重试次数已用完' : `重试加载 (${retryCount}/3)`}
                 </button>
               </div>
             </div>

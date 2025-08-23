@@ -7,6 +7,8 @@ interface Props {
   onComposedUpload: (imageFile: File, imageBase64: string) => void
   cachedComposedDataUrl?: string
   onRemove?: () => void
+  showPreview?: boolean
+  showImageSelection?: boolean
 }
 
 interface Position {
@@ -35,7 +37,7 @@ const PRESET_OUTFITS = [
 const POSITION_STORAGE_KEY = 'avatar_outfit_position_state'
 const IMAGE_URL_STORAGE_KEY = 'avatar_outfit_image_urls'
 
-export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedDataUrl, onRemove }: Props) {
+export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedDataUrl, onRemove, showPreview = false, showImageSelection = true }: Props) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [outfitUrl, setOutfitUrl] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(cachedComposedDataUrl || null)
@@ -485,140 +487,144 @@ export default function AvatarOutfitComposer({ onComposedUpload, cachedComposedD
 
   return (
     <>
-      <h2 className="text-[#0c1c17] text-lg sm:text-xl lg:text-[22px] font-bold leading-tight tracking-[-0.015em] px-2 sm:px-4 pb-3 pt-5">
-        Input Images
-      </h2>
+      {showImageSelection && (
+        <>
+          <h2 className="text-[#0c1c17] text-lg sm:text-xl lg:text-[22px] font-bold leading-tight tracking-[-0.015em] px-2 sm:px-4 pb-3 pt-5">
+            Input Images
+          </h2>
 
-      <div className="flex flex-col gap-4 p-2 sm:p-4">
-        {/* 头像 */}
-        <div className="rounded-lg border-2 border-[#cde9df] p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[#0c1c17] font-semibold">头像图片</p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-8 px-3" onClick={() => pickLocal(avatarInputRef)}>上传</Button>
-              <input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleLocalSelect(e, 'avatar')} />
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {PRESET_AVATARS.map((src) => (
-              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${avatarUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
-                console.log(`📁 选择了预设头像:`, src)
-                setAvatarUrl(src)
-              }}>
-                <img src={src} alt="avatar preset" className="w-16 h-16 object-cover rounded-md" />
-              </button>
-            ))}
-            {avatarUrl && (
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-[#46a080]">已选择</span>
+          <div className="flex flex-col gap-4 p-2 sm:p-4">
+            {/* 头像 */}
+            <div className="rounded-lg border-2 border-[#cde9df] p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[#0c1c17] font-semibold">头像图片</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="h-8 px-3" onClick={() => pickLocal(avatarInputRef)}>上传</Button>
+                  <input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleLocalSelect(e, 'avatar')} />
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* 服装 */}
-        <div className="rounded-lg border-2 border-[#cde9df] p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[#0c1c17] font-semibold">服装图片</p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-8 px-3" onClick={() => pickLocal(outfitInputRef)}>上传</Button>
-              <input ref={outfitInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleLocalSelect(e, 'outfit')} />
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {PRESET_OUTFITS.map((src) => (
-              <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${outfitUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
-                console.log(`📁 选择了预设服装:`, src)
-                setOutfitUrl(src)
-              }}>
-                <img src={src} alt="outfit preset" className="w-16 h-16 object-cover rounded-md" />
-              </button>
-            ))}
-            {outfitUrl && (
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-[#46a080]">已选择</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 合成与预览 */}
-        <div className="rounded-lg border-2 border-[#cde9df] p-3">
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="h-9 px-4" onClick={() => {
-              console.log(`🔘 合成预览按钮被点击`)
-              compose()
-            }}>合成预览</Button>
-            <Button 
-              className={`h-9 px-4 ${isAdjusting ? 'bg-blue-600' : 'bg-[#019863]'} text-white`} 
-              onClick={() => {
-                console.log(`🔘 调整位置按钮被点击，当前状态:`, { isAdjusting })
-                setIsAdjusting(!isAdjusting)
-                console.log(`✅ 调整模式已切换为:`, !isAdjusting)
-              }}
-            >
-              {isAdjusting ? '完成调整' : '调整位置'}
-            </Button>
-            <Button variant="outline" className="h-9 px-4" onClick={() => {
-              console.log(`🔘 重置位置按钮被点击`)
-              resetPositions()
-            }}>重置位置</Button>
-            <Button className="h-9 px-4 bg-[#019863] text-white" onClick={() => {
-              console.log(`🔘 设为输入按钮被点击`)
-              confirmUseAsInput()
-            }} disabled={!previewUrl}>设为输入</Button>
-            <Button variant="outline" className="h-9 px-4 text-red-600 border-red-300 hover:bg-red-50" onClick={() => {
-              console.log(`🔘 清除选择按钮被点击`)
-              clearAll()
-            }}>清除选择</Button>
-          </div>
-          
-          {previewUrl && (
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <div className="relative" ref={canvasRef}>
-                <img 
-                  src={previewUrl} 
-                  alt="composed preview" 
-                  className="max-w-full max-h-64 rounded-lg object-contain border border-[#cde9df]"
-                />
-                {isAdjusting && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* 头像拖拽区域 */}
-                    <div 
-                      className="absolute w-8 h-8 bg-blue-500 bg-opacity-50 rounded-full border-2 border-blue-600 cursor-move pointer-events-auto flex items-center justify-center"
-                      style={{
-                        left: `${avatarPosition.x * 100}%`,
-                        top: `${avatarPosition.y * 100}%`,
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                      onMouseDown={(e) => handleMouseDown(e, 'avatar')}
-                    >
-                      <span className="text-white text-xs font-bold">头</span>
-                    </div>
-                    {/* 服装拖拽区域 */}
-                    <div 
-                      className="absolute w-8 h-8 bg-green-500 bg-opacity-50 rounded-full border-2 border-green-600 cursor-move pointer-events-auto flex items-center justify-center"
-                      style={{
-                        left: `${outfitPosition.x * 100}%`,
-                        top: `${outfitPosition.y * 100}%`,
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                      onMouseDown={(e) => handleMouseDown(e, 'outfit')}
-                    >
-                      <span className="text-white text-xs font-bold">衣</span>
-                    </div>
+              <div className="flex gap-2 flex-wrap">
+                {PRESET_AVATARS.map((src) => (
+                  <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${avatarUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
+                    console.log(`📁 选择了预设头像:`, src)
+                    setAvatarUrl(src)
+                  }}>
+                    <img src={src} alt="avatar preset" className="w-16 h-16 object-cover rounded-md" />
+                  </button>
+                ))}
+                {avatarUrl && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-[#46a080]">已选择</span>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-[#46a080]">
-                {isAdjusting 
-                  ? '拖拽蓝色圆点调整头像位置，绿色圆点调整服装位置' 
-                  : '已合成（1:1），点"设为输入"作为生成的输入图片'
-                }
-              </p>
             </div>
-          )}
+
+            {/* 服装 */}
+            <div className="rounded-lg border-2 border-[#cde9df] p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[#0c1c17] font-semibold">服装图片</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="h-8 px-3" onClick={() => pickLocal(outfitInputRef)}>上传</Button>
+                  <input ref={outfitInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleLocalSelect(e, 'outfit')} />
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {PRESET_OUTFITS.map((src) => (
+                  <button key={src} className={`border rounded-md p-1 hover:border-[#019863] ${outfitUrl === src ? 'border-[#019863]' : 'border-[#cde9df]'}`} onClick={() => {
+                    console.log(`📁 选择了预设服装:`, src)
+                    setOutfitUrl(src)
+                  }}>
+                    <img src={src} alt="outfit preset" className="w-16 h-16 object-cover rounded-md" />
+                  </button>
+                ))}
+                {outfitUrl && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-[#46a080]">已选择</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 合成操作按钮 */}
+      <div className="rounded-lg border-2 border-[#cde9df] p-3 mx-2 sm:mx-4">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" className="h-9 px-4" onClick={() => {
+            console.log(`🔘 合成预览按钮被点击`)
+            compose()
+          }}>合成预览</Button>
+          <Button 
+            className={`h-9 px-4 ${isAdjusting ? 'bg-blue-600' : 'bg-[#019863]'} text-white`} 
+            onClick={() => {
+              console.log(`🔘 调整位置按钮被点击，当前状态:`, { isAdjusting })
+              setIsAdjusting(!isAdjusting)
+              console.log(`✅ 调整模式已切换为:`, !isAdjusting)
+            }}
+          >
+            {isAdjusting ? '完成调整' : '调整位置'}
+          </Button>
+          <Button variant="outline" className="h-9 px-4" onClick={() => {
+            console.log(`🔘 重置位置按钮被点击`)
+            resetPositions()
+          }}>重置位置</Button>
+          <Button className="h-9 px-4 bg-[#019863] text-white" onClick={() => {
+            console.log(`🔘 设为输入按钮被点击`)
+            confirmUseAsInput()
+          }} disabled={!previewUrl}>设为输入</Button>
+          <Button variant="outline" className="h-9 px-4 text-red-600 border-red-300 hover:bg-red-50" onClick={() => {
+            console.log(`🔘 清除选择按钮被点击`)
+            clearAll()
+          }}>清除选择</Button>
         </div>
+        
+        {showPreview && previewUrl && (
+          <div className="mt-3 flex flex-col items-center gap-2">
+            <div className="relative" ref={canvasRef}>
+              <img 
+                src={previewUrl} 
+                alt="composed preview" 
+                className="max-w-full max-h-64 rounded-lg object-contain border border-[#cde9df]"
+              />
+              {isAdjusting && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {/* 头像拖拽区域 */}
+                  <div 
+                    className="absolute w-8 h-8 bg-blue-500 bg-opacity-50 rounded-full border-2 border-blue-600 cursor-move pointer-events-auto flex items-center justify-center"
+                    style={{
+                      left: `${avatarPosition.x * 100}%`,
+                      top: `${avatarPosition.y * 100}%`,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                    onMouseDown={(e) => handleMouseDown(e, 'avatar')}
+                  >
+                    <span className="text-white text-xs font-bold">头</span>
+                  </div>
+                  {/* 服装拖拽区域 */}
+                  <div 
+                    className="absolute w-8 h-8 bg-green-500 bg-opacity-50 rounded-full border-2 border-green-600 cursor-move pointer-events-auto flex items-center justify-center"
+                    style={{
+                      left: `${outfitPosition.x * 100}%`,
+                      top: `${outfitPosition.y * 100}%`,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                    onMouseDown={(e) => handleMouseDown(e, 'outfit')}
+                  >
+                    <span className="text-white text-xs font-bold">衣</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-[#46a080]">
+              {isAdjusting 
+                ? '拖拽蓝色圆点调整头像位置，绿色圆点调整服装位置' 
+                : '已合成（1:1），点"设为输入"作为生成的输入图片'
+              }
+            </p>
+          </div>
+        )}
       </div>
     </>
   )

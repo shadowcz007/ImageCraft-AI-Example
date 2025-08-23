@@ -51,6 +51,8 @@ export default function ImageCraftApp() {
   const [generationStatus, setGenerationStatus] = useState('')
   const [showApiSettings, setShowApiSettings] = useState(false)
   const [hasValidCache, setHasValidCache] = useState(false)
+  const [showPromptInteraction, setShowPromptInteraction] = useState(false)
+  const [showComposerPreview, setShowComposerPreview] = useState(false)
 
   // 检查API密钥是否已设置
   useEffect(() => {
@@ -198,13 +200,27 @@ export default function ImageCraftApp() {
         }
       )
 
-      setGeneratedImageUrl(resultUrl)
-      setGenerationStatus('Ready')
-      
-      // 保存生成的图片URL到缓存
-      saveCacheData({
-        generatedImageUrl: resultUrl
+      // 验证返回的URL是否有效
+      console.log('收到生成的图片URL:', {
+        url: resultUrl,
+        urlType: typeof resultUrl,
+        urlLength: resultUrl?.length,
+        isValid: resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))
       })
+      
+      if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {
+        setGeneratedImageUrl(resultUrl)
+        setGenerationStatus('Ready')
+        
+        // 保存生成的图片URL到缓存
+        saveCacheData({
+          generatedImageUrl: resultUrl
+        })
+      } else {
+        console.error('生成的图片URL无效:', resultUrl)
+        setGenerationStatus('Error')
+        alert('生成的图片URL格式无效，请重新生成图片')
+      }
     } catch (error) {
       console.error('图像生成失败:', error)
       setGenerationStatus('Error')
@@ -294,6 +310,7 @@ export default function ImageCraftApp() {
               onComposedUpload={handleImageUpload}
               cachedComposedDataUrl={imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined}
               onRemove={handleRemoveImage}
+              showPreview={false}
             />
             {hasValidCache && (
               <div className="px-2 sm:px-4 pb-2">
@@ -305,14 +322,7 @@ export default function ImageCraftApp() {
                 </div>
               </div>
             )}
-            <PromptInteraction 
-              prompt={prompt}
-              setPrompt={setPrompt}
-              onSend={handleSendPrompt}
-              finalPrompt={finalPrompt}
-              onGenerateImage={handleGenerateImage}
-              isGenerating={isGenerating}
-            />
+            
             <h2 className="text-[#0c1c17] text-lg sm:text-xl lg:text-[22px] font-bold leading-tight tracking-[-0.015em] px-2 sm:px-4 pb-3 pt-5">
               Final Prompt
             </h2>
@@ -324,7 +334,7 @@ export default function ImageCraftApp() {
                 rows={3}
                 placeholder="输入您的最终提示词..."
               />
-              <div className="mt-3 flex justify-between items-center">
+              <div className="mt-3 flex justify-between items-center gap-2">
                 <button
                   onClick={handleClearCache}
                   className="px-3 py-1 text-[#46a080] text-sm hover:underline border border-[#cde9df] rounded hover:bg-[#e6f4ef] transition-colors"
@@ -334,9 +344,15 @@ export default function ImageCraftApp() {
                 <button
                   onClick={handleGenerateImage}
                   disabled={isGenerating || !uploadedImage}
-                  className="px-4 py-2 bg-[#019863] text-white rounded-lg font-medium hover:bg-[#017a4f] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="px-4 py-2 bg-[#019863] text-white rounded-lg font-medium hover:bg-[#017a4f] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex-1 max-w-[120px]"
                 >
                   {isGenerating ? '生成中...' : '生成'}
+                </button>
+                <button
+                  onClick={() => setShowPromptInteraction(!showPromptInteraction)}
+                  className="px-3 py-1 text-[#46a080] text-sm hover:underline border border-[#cde9df] rounded hover:bg-[#e6f4ef] transition-colors whitespace-nowrap"
+                >
+                  {showPromptInteraction ? '隐藏优化' : 'Prompt优化'}
                 </button>
               </div>
             </div>
@@ -348,18 +364,90 @@ export default function ImageCraftApp() {
                 API设置
               </button>
             </div>
+
           </div>
           <div className="layout-content-container flex flex-col w-full max-w-none lg:max-w-[960px] flex-1 hidden lg:block">
-            <GeneratedImage 
-              generatedImageUrl={generatedImageUrl}
-              isGenerating={isGenerating}
-              generationStatus={generationStatus}
-              onDownload={handleDownload}
-            />
+            {/* 合成预览开关按钮 */}
+            <div className="flex justify-end mb-4 px-2 sm:px-4">
+              <button
+                onClick={() => setShowComposerPreview(!showComposerPreview)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                  showComposerPreview 
+                    ? 'bg-[#019863] text-white hover:bg-[#017a4f]' 
+                    : 'bg-[#e6f4ef] text-[#46a080] hover:bg-[#cde9df] border border-[#cde9df]'
+                }`}
+              >
+                {showComposerPreview ? '隐藏合成预览' : '显示合成预览'}
+              </button>
+            </div>
+            
+            {/* 合成预览区域 */}
+            {showComposerPreview && (
+              <div className="mb-6 px-2 sm:px-4">
+                <div className="bg-white rounded-lg border-2 border-[#cde9df] p-4">
+                  <h3 className="text-[#0c1c17] text-lg font-bold mb-3">合成预览</h3>
+                  <AvatarOutfitComposer
+                    onComposedUpload={handleImageUpload}
+                    cachedComposedDataUrl={imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined}
+                    onRemove={handleRemoveImage}
+                    showPreview={true}
+                    showImageSelection={false}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {showPromptInteraction ? (
+              <PromptInteraction 
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSend={handleSendPrompt}
+                finalPrompt={finalPrompt}
+                onGenerateImage={handleGenerateImage}
+                isGenerating={isGenerating}
+              />
+            ) : (
+              <GeneratedImage 
+                generatedImageUrl={generatedImageUrl}
+                isGenerating={isGenerating}
+                generationStatus={generationStatus}
+                onDownload={handleDownload}
+              />
+            )}
           </div>
         </div>
         {/* 移动端图片展示区域 */}
         <div className="lg:hidden px-2 sm:px-4 pb-4">
+          {/* 移动端合成预览开关按钮 */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setShowComposerPreview(!showComposerPreview)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                showComposerPreview 
+                  ? 'bg-[#019863] text-white hover:bg-[#017a4f]' 
+                  : 'bg-[#e6f4ef] text-[#46a080] hover:bg-[#cde9df] border border-[#cde9df]'
+              }`}
+            >
+              {showComposerPreview ? '隐藏合成预览' : '显示合成预览'}
+            </button>
+          </div>
+          
+          {/* 移动端合成预览区域 */}
+          {showComposerPreview && (
+            <div className="mb-6">
+              <div className="bg-white rounded-lg border-2 border-[#cde9df] p-4">
+                <h3 className="text-[#0c1c17] text-lg font-bold mb-3">合成预览</h3>
+                <AvatarOutfitComposer
+                  onComposedUpload={handleImageUpload}
+                  cachedComposedDataUrl={imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined}
+                  onRemove={handleRemoveImage}
+                  showPreview={true}
+                  showImageSelection={false}
+                />
+              </div>
+            </div>
+          )}
+          
           <GeneratedImage 
             generatedImageUrl={generatedImageUrl}
             isGenerating={isGenerating}
@@ -367,6 +455,33 @@ export default function ImageCraftApp() {
             onDownload={handleDownload}
           />
         </div>
+
+        {/* 移动端 Prompt Interaction - 全屏显示 */}
+        {showPromptInteraction && (
+          <div className="lg:hidden fixed inset-0 bg-white z-50 overflow-y-auto">
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-[#0c1c17]">Prompt 优化</h2>
+                <button
+                  onClick={() => setShowPromptInteraction(false)}
+                  className="p-2 text-[#46a080] hover:bg-[#e6f4ef] rounded-lg"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                  </svg>
+                </button>
+              </div>
+              <PromptInteraction 
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSend={handleSendPrompt}
+                finalPrompt={finalPrompt}
+                onGenerateImage={handleGenerateImage}
+                isGenerating={isGenerating}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
